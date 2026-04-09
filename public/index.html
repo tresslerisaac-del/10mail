@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TempMail</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #161616;
+      --surface2: #1f1f1f;
+      --border: #2a2a2a;
+      --text: #f0f0f0;
+      --muted: #888;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --blue: #3b82f6;
+      --radius: 10px;
+      --mono: 'Courier New', monospace;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .main { width: 100%; max-width: 620px; display: flex; flex-direction: column; gap: 1rem; }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+    }
+
+    .card-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .field-row { display: flex; gap: 8px; align-items: center; }
+
+    .field-val {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--text);
+      word-break: break-all;
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+    }
+
+    .btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 13px;
+      padding: 8px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s, border-color 0.12s;
+    }
+    .btn:hover { background: var(--surface2); border-color: #444; }
+    .btn:active { transform: scale(0.97); }
+    .btn.copied { color: var(--green); border-color: var(--green); }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--amber);
+      flex-shrink: 0;
+    }
+    .dot.green { background: var(--green); }
+    .dot.red { background: var(--red); }
+
+    .timer-wrap { margin-top: 10px; }
+    .timer-track {
+      background: var(--surface2);
+      border-radius: 4px;
+      height: 5px;
+      overflow: hidden;
+    }
+    .timer-fill {
+      height: 100%;
+      border-radius: 4px;
+      background: var(--green);
+      transition: width 1s linear, background 0.4s;
+    }
+    .timer-text {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 5px;
+    }
+
+    /* inbox */
+    .inbox-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .inbox-title { font-size: 14px; font-weight: 600; }
+    .badge {
+      font-size: 11px;
+      padding: 2px 9px;
+      border-radius: 99px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .badge.has-mail { color: var(--blue); border-color: var(--blue); }
+
+    .empty { font-size: 13px; color: var(--muted); text-align: center; padding: 1.5rem 0; }
+
+    .msg-item {
+      border-top: 1px solid var(--border);
+      padding: 12px 0;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+    .msg-item:hover { opacity: 0.7; }
+    .msg-from { font-size: 13px; font-weight: 600; }
+    .msg-subject { font-size: 13px; color: var(--muted); margin-top: 2px; }
+    .msg-time { font-size: 11px; color: #555; margin-top: 2px; }
+
+    /* modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 540px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    .modal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+    .modal-subject { font-size: 15px; font-weight: 600; }
+    .modal-from { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 0 4px;
+    }
+    .modal-body {
+      font-size: 13px;
+      color: #ccc;
+      line-height: 1.75;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border-top: 1px solid var(--border);
+      padding-top: 1rem;
+    }
+
+    .domain-tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .dtab {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .dtab:hover { border-color: #444; color: var(--text); }
+    .dtab.active { border-color: var(--blue); color: var(--blue); background: rgba(59,130,246,0.08); }
+    .domain-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .domain-note span { color: var(--green); }
+    .domain-note span.fake { color: var(--amber); }
+
+    @media (max-width: 480px) {
+      .field-val { font-size: 12px; }
+      .btn { padding: 8px 10px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>⚡ TempMail</h1>
+  <p>Disposable email + password · auto-refreshes every 10 minutes</p>
+</header>
+
+<div class="main">
+
+  <div class="card">
+    <div class="card-label">Temp email</div>
+    <div class="domain-tabs">
+      <button class="dtab active" data-mode="mailtm">mail.tm <small>(real inbox)</small></button>
+      <button class="dtab" data-mode="gmail">Gmail +tag</button>
+      <button class="dtab" data-mode="outlook">Outlook +tag</button>
+    </div>
+    <div class="field-row">
+      <div class="field-val" id="email-val">Generating...</div>
+      <button class="btn" id="copy-email">Copy</button>
+      <button class="btn" id="new-email">New ↺</button>
+    </div>
+    <div class="status-row">
+      <span class="dot" id="dot"></span>
+      <span id="status-text">Connecting...</span>
+    </div>
+    <div class="domain-note" id="domain-note"><span>✓ Real inbox</span> — emails delivered here are readable below</div>
+    <div class="timer-wrap">
+      <div class="timer-track"><div class="timer-fill" id="timer-fill"></div></div>
+      <div class="timer-text" id="timer-text">10:00 remaining</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Temp password</div>
+    <div class="field-row">
+      <div class="field-val" id="pass-val"></div>
+      <button class="btn" id="copy-pass">Copy</button>
+      <button class="btn" id="new-pass">New ↺</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="inbox-head">
+      <span class="inbox-title">Inbox</span>
+      <span class="badge" id="badge">0 messages</span>
+    </div>
+    <div id="inbox-list"><div class="empty">Waiting for emails...</div></div>
+  </div>
+
+</div>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-top">
+      <div>
+        <div class="modal-subject" id="m-subject"></div>
+        <div class="modal-from" id="m-from"></div>
+      </div>
+      <button class="modal-close" id="modal-close">✕</button>
+    </div>
+    <div class="modal-body" id="m-body">Loading...</div>
+  </div>
+</div>
+
+<script>
+  const TOTAL = 600;
+  let secondsLeft = TOTAL;
+  let token = null;
+  let messages = [];
+  let pollTimer = null;
+  let countdownTimer = null;
+  let currentEmail = '';
+  let currentMode = 'mailtm';
+
+  const $ = id => document.getElementById(id);
+
+  // Base Gmail/Outlook usernames to derive +tag variants from
+  const GMAIL_BASES = ['alex.carter','jordan.lee','sam.rivera','morgan.hayes','taylor.brooks','casey.morgan','riley.stone','drew.james','avery.quinn','blake.foster'];
+  const OUTLOOK_BASES = ['mike.thomas','chris.walker','dana.hill','pat.nelson','robin.scott','jamie.reed','terry.hunt','logan.price','skyler.ross','reese.ward'];
+
+  function randBase(arr) {
+    return arr[Math.floor(Math.random() * arr.length)];
+  }
+
+  function randTag() {
+    return Math.floor(10 + Math.random() * 990);
+  }
+
+  function genPassword(len = 18) {
+    const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+    const arr = new Uint8Array(len);
+    crypto.getRandomValues(arr);
+    return Array.from(arr, b => chars[b % chars.length]).join('');
+  }
+
+  function setStatus(text, state) {
+    $('status-text').textContent = text;
+    const dot = $('dot');
+    dot.className = 'dot' + (state === 'ok' ? ' green' : state === 'err' ? ' red' : '');
+  }
+
+  function setDomainNote(mode) {
+    const note = $('domain-note');
+    if (mode === 'mailtm') {
+      note.innerHTML = '<span>✓ Real inbox</span> — emails delivered here are readable below';
+    } else {
+      const provider = mode === 'gmail' ? 'Gmail' : 'Outlook';
+      note.innerHTML = `<span class="fake">⚠ Display only</span> — use as a sign-up address. Check your real ${provider} inbox for emails.`;
+    }
+  }
+
+  async function api(path, opts = {}) {
+    const r = await fetch('/api/mail' + path, opts);
+    return r.json();
+  }
+
+  async function createAccount() {
+    clearInterval(pollTimer);
+    clearInterval(countdownTimer);
+    messages = [];
+    renderInbox();
+    setDomainNote(currentMode);
+
+    if (currentMode === 'gmail' || currentMode === 'outlook') {
+      const bases = currentMode === 'gmail' ? GMAIL_BASES : OUTLOOK_BASES;
+      const domain = currentMode === 'gmail' ? 'gmail.com' : 'outlook.com';
+      const base = randBase(bases);
+      const tag = randTag();
+      currentEmail = `${base}+${tag}@${domain}`;
+      $('email-val').textContent = currentEmail;
+      setStatus('Email generated', 'ok');
+      startCountdown();
+      return;
+    }
+
+    // mail.tm real inbox
+    setStatus('Creating mailbox...', '');
+    $('email-val').textContent = 'Generating...';
+
+    try {
+      const domData = await api('/domains');
+      const domain = domData['hydra:member'][0].domain;
+      const user = 'tmp' + Math.random().toString(36).slice(2, 9);
+      const pass = genPassword(12);
+      currentEmail = `${user}@${domain}`;
+
+      await api('/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: currentEmail, password: pass })
+      });
+
+      const tokData = await api('/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: currentEmail, password: pass })
+      });
+
+      token = tokData.token;
+      $('email-val').textContent = currentEmail;
+      setStatus('Inbox active', 'ok');
+      startCountdown();
+      pollMessages();
+      pollTimer = setInterval(pollMessages, 5000);
+    } catch (e) {
+      setStatus('Failed — try refreshing', 'err');
+      $('email-val').textContent = 'Error';
+    }
+  }
+
+  function startCountdown() {
+    secondsLeft = TOTAL;
+    countdownTimer = setInterval(() => {
+      secondsLeft--;
+      const pct = (secondsLeft / TOTAL) * 100;
+      const fill = $('timer-fill');
+      fill.style.width = pct + '%';
+      fill.style.background = pct > 40 ? '#22c55e' : pct > 15 ? '#f59e0b' : '#ef4444';
+      const m = Math.floor(secondsLeft / 60);
+      const s = secondsLeft % 60;
+      $('timer-text').textContent = `${m}:${String(s).padStart(2,'0')} remaining`;
+      if (secondsLeft <= 0) {
+        clearInterval(countdownTimer);
+        clearInterval(pollTimer);
+        createAccount();
+      }
+    }, 1000);
+  }
+
+  async function pollMessages() {
+    if (!token) return;
+    try {
+      const data = await fetch('/api/mail/messages', {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(r => r.json());
+      const msgs = data['hydra:member'] || [];
+      if (msgs.length !== messages.length) {
+        messages = msgs;
+        renderInbox();
+      }
+    } catch (_) {}
+  }
+
+  function renderInbox() {
+    const list = $('inbox-list');
+    const badge = $('badge');
+    const n = messages.length;
+    badge.textContent = n + (n === 1 ? ' message' : ' messages');
+    badge.className = 'badge' + (n > 0 ? ' has-mail' : '');
+
+    if (n === 0) {
+      list.innerHTML = '<div class="empty">Waiting for emails...</div>';
+      return;
+    }
+    list.innerHTML = messages.map((m, i) => `
+      <div class="msg-item" onclick="openMsg(${i})">
+        <div class="msg-from">${esc(m.from?.address || 'Unknown')}</div>
+        <div class="msg-subject">${esc(m.subject || '(no subject)')}</div>
+        <div class="msg-time">${fmtTime(m.createdAt)}</div>
+      </div>
+    `).join('');
+  }
+
+  async function openMsg(i) {
+    const m = messages[i];
+    $('m-subject').textContent = m.subject || '(no subject)';
+    $('m-from').textContent = 'From: ' + (m.from?.address || 'Unknown');
+    $('m-body').textContent = 'Loading...';
+    $('modal').classList.add('open');
+
+    try {
+      const data = await fetch(`/api/mail/messages/${m.id}`, {
+        headers: { Authorization: 'Bearer ' + token }
+      }).then(r => r.json());
+      $('m-body').textContent = data.text || stripHtml(data.html) || '(empty)';
+    } catch (_) {
+      $('m-body').textContent = 'Could not load message.';
+    }
+  }
+
+  function stripHtml(h) {
+    return h ? h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function copyBtn(btnId, getText) {
+    const btn = $(btnId);
+    btn.addEventListener('click', () => {
+      const val = getText();
+      if (!val || val === 'Generating...' || val === 'Error') return;
+      navigator.clipboard.writeText(val).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+  }
+
+  copyBtn('copy-email', () => currentEmail);
+  copyBtn('copy-pass', () => $('pass-val').textContent);
+
+  $('new-email').addEventListener('click', createAccount);
+  $('new-pass').addEventListener('click', () => { $('pass-val').textContent = genPassword(); });
+  $('modal-close').addEventListener('click', () => $('modal').classList.remove('open'));
+  $('modal').addEventListener('click', e => { if (e.target === $('modal')) $('modal').classList.remove('open'); });
+
+  document.querySelectorAll('.dtab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.dtab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      currentMode = tab.dataset.mode;
+      token = null;
+      createAccount();
+    });
+  });
+
+  $('pass-val').textContent = genPassword();
+  createAccount();
+</script>
+</body>
+</html>
